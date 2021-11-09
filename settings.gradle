@@ -2,3 +2,4 @@ rootProject.name = "AptDemo"
 include ':app'
 include ':lib-annotation'
 include ':lib-processor'
+include ':lib-bindview'
