@@ -1,0 +1,33 @@
+注解，单独是没有意义的
+
+注解+APT  用于生成一些Java文件 butterknife dagger2 hilt databinding
+
+注解+代码埋点  AspectJ  arounter
+
+注解+反射  XUtils, Lifecycle
+
+IntDef的使用
+
+Target
+Retention
+
+默认value
+
+
+APT： Annotation Processing Tool
+
+
+                APT
+                |
+                |
+java-----------Javac---------class
+
+java编译时生成Java代码
+
+
+
+    annotationProcessor 'com.google.auto.service:auto-service:1.0-rc4'
+    compileOnly 'com.google.auto.service:auto-service:1.0-rc4'
+
+@AutoService(Processor.class)
+public class AnnotationsCompiler extends AbstractProcessor {
