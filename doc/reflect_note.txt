@@ -1,0 +1,8 @@
+dx 环境变量， sdk/build-tools/26.0.2  dx.bat
+
+shell执行dx命令
+
+
+Android studio build生成.class文件，拷贝出来
+
+shell执行  ： dx --dex --verbose --dump-to=maniu.txt --dump-method=Person.run --verbose-dump Person.class
