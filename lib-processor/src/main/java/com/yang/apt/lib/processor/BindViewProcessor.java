@@ -8,6 +8,7 @@ import com.squareup.javapoet.TypeSpec;
 import com.yang.apt.lib.annotation.BindView;
 
 import java.io.IOException;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,6 +29,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 
 @AutoService(Processor.class)
 public class BindViewProcessor extends AbstractProcessor {
@@ -85,40 +87,9 @@ public class BindViewProcessor extends AbstractProcessor {
             for (String clazzName : map.keySet()) {
                 List<VariableElement> variableElements = map.get(clazzName);
 
-                //获取类元素
-                TypeElement typeElement = (TypeElement) variableElements.get(0).getEnclosingElement();
-
-                PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(typeElement);
-                //获取包名
-                String packageName = packageElement.toString();
-                try {
-                    //生成文件：com.yang.apt.demo.MainActivity_ViewBinding
-
-                    MethodSpec.Builder bindBuilder = MethodSpec.methodBuilder("bind")
-                            .addModifiers(Modifier.PUBLIC)
-                            .addParameter(TypeName.get(typeElement.asType()), "target")
-                            .returns(void.class);
-
-                    for (VariableElement variableElement : variableElements) {
-                        //获取变量名
-                        String variableName = variableElement.getSimpleName().toString();
-                        //获取变量的注解值
-                        int id = variableElement.getAnnotation(BindView.class).value();
-                        //获取变量的类型
-                        TypeMirror typeMirror = variableElement.asType();
-
-                        bindBuilder.addStatement("target.$L = ($L)target.findViewById($L)", variableName, typeMirror.toString(), id);
-                    }
-
-                    TypeSpec typeSpec = TypeSpec.classBuilder(clazzName + "_ViewBinding")
-                            .addModifiers(Modifier.PUBLIC)
-                            .addMethod(bindBuilder.build())
-                            .build();
-                    JavaFile javaFile = JavaFile.builder(packageName, typeSpec).build();
-                    javaFile.writeTo(processingEnv.getFiler());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                //生成  **_ViewBinding.java文件
+                //createViewBindingFile(clazzName, variableElements);
+                createViewBindingFileByJavaPoet(clazzName, variableElements);
             }
         }
 
@@ -127,6 +98,93 @@ public class BindViewProcessor extends AbstractProcessor {
         //返回false，此方法还会被进入，因为生成了代码，生成了代码中可能还有其他注解，需要再生成代码
         return false;
     }
+
+
+    /**
+     * 使用JavaPoet生成  **_ViewBinding.java文件
+     *
+     * 如：com.yang.apt.demo.MainActivity_ViewBinding.java
+     */
+    private void createViewBindingFileByJavaPoet(String clazzName, List<VariableElement> variableElements) {
+        //获取类元素
+        TypeElement typeElement = (TypeElement) variableElements.get(0).getEnclosingElement();
+        PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(typeElement);
+        //获取包名
+        String packageName = packageElement.toString();
+        try {
+            //构建方法：public void bind(MainActivity target)
+            MethodSpec.Builder bindBuilder = MethodSpec.methodBuilder("bind")
+                    .addModifiers(Modifier.PUBLIC)
+                    .addParameter(TypeName.get(typeElement.asType()), "target")
+                    .returns(void.class);
+
+            for (VariableElement variableElement : variableElements) {
+                //获取变量名
+                String variableName = variableElement.getSimpleName().toString();
+                //获取变量的注解值
+                int id = variableElement.getAnnotation(BindView.class).value();
+                //获取变量的类型
+                TypeMirror typeMirror = variableElement.asType();
+
+                //给方法添加语句：target.textView = (android.widget.TextView)target.findViewById(2131165338);
+                bindBuilder.addStatement("target.$L = ($L)target.findViewById($L)", variableName, typeMirror.toString(), id);
+            }
+
+            //构建类： MainActivity_ViewBinding
+            TypeSpec typeSpec = TypeSpec.classBuilder(clazzName + "_ViewBinding")
+                    .addModifiers(Modifier.PUBLIC)
+                    .addMethod(bindBuilder.build())
+                    .build();
+
+            //构建Java文件
+            JavaFile javaFile = JavaFile.builder(packageName, typeSpec).build();
+
+            //写入.java文件
+            javaFile.writeTo(processingEnv.getFiler());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 生成  **_ViewBinding.java文件
+     *
+     * 如：com.yang.apt.demo.MainActivity_ViewBinding.java
+     */
+    private void createViewBindingFile(String clazzName, List<VariableElement> variableElements) {
+        TypeElement typeElement = (TypeElement) variableElements.get(0).getEnclosingElement();
+
+        PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(typeElement);
+
+        //获取包名
+        String packageName = packageElement.toString();
+        try {
+            JavaFileObject file = processingEnv.getFiler().createSourceFile(packageName + "." + clazzName + "_ViewBinding");
+            Writer writer = file.openWriter();
+            writer.write("package " + packageName + ";");
+            writer.write("\n\npublic class " + clazzName + "_ViewBinding {");
+
+            writer.write("\n\n\tpublic void bind(" + clazzName + " target) {");
+
+            for (VariableElement variableElement : variableElements) {
+                //获取变量名
+                String variableName = variableElement.getSimpleName().toString();
+                //获取变量的注解值
+                int id = variableElement.getAnnotation(BindView.class).value();
+                //获取变量的类型
+                TypeMirror typeMirror = variableElement.asType();
+                writer.write("\n\t\ttarget." + variableName + " = (" + typeMirror.toString() + ")target.findViewById(" + id + ");");
+            }
+
+            writer.write("\n\t}");
+            writer.write("\n}");
+            writer.flush();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     private void print(String log){
         mMessager.printMessage(Diagnostic.Kind.NOTE, "BindViewProcessor " + log);
